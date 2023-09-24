@@ -1,0 +1,81 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  mono2notion
+
+  Sample SAM Template for mono2notion
+  
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 3
+
+Resources:
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: LambdaS3ReadPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                Resource: arn:aws:s3:::bananaBucket/* //bananaBucket is the name of the bucket
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: arn:aws:logs:*:*:*
+  Mono2NotionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      PackageType: Image
+      Architectures:
+        - x86_64
+      ImageUri: <ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/<REPOSITORY_NAME>:latest
+      Events:
+        S3PutEvent:
+          Type: S3
+          Properties:
+            Bucket:
+              Ref: bananaBucket // bananaBucket is the name of the bucket
+            Events: s3:ObjectCreated:Put
+    Metadata:
+      DockerTag: nodejs18.x-v1
+      DockerContext: ./mono2notion
+      Dockerfile: Dockerfile
+  bananaBucket:
+    Type: AWS::S3::Bucket
+
+
+  LambdaS3InvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref Mono2NotionFunction
+      Principal: s3.amazonaws.com
+      SourceAccount: !Sub ${AWS::AccountId}
+      SourceArn: !GetAtt bananaBucket.Arn // bananaBucket is the arn of the bucket
+
+Outputs:
+  # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
+  # Find out more about other implicit resources you can reference within SAM
+  # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
+  Mono2NotionFunction:
+    Description: "Mono2Notion Lambda Function ARN"
+    Value: !GetAtt Mono2NotionFunction.Arn
+  Mono2NotionFunctionIamRole:
+    Description: "Implicit IAM Role created for Mono2Notion function"
+    Value: !GetAtt Mono2NotionFunctionRole.Arn

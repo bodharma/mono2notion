@@ -1,0 +1,39 @@
+name: Build and Deploy to AWS Lambda
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Docker
+        run: |
+          docker build -t <REPOSITORY_NAME>:latest .
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Push image to Amazon ECR
+        run: |
+          docker tag <REPOSITORY_NAME>:latest ${{ steps.login-ecr.outputs.registry }}/<REPOSITORY_NAME>:latest
+          docker push ${{ steps.login-ecr.outputs.registry }}/<REPOSITORY_NAME>:latest
+
+      - name: Deploy Lambda function using SAM CLI
+        run: |
+          sam build
+          sam deploy --no-confirm-changeset
